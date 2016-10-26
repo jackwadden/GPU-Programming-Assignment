@@ -3,7 +3,7 @@
 # Description
 Assignment slides are located here: http://www.cs.virginia.edu/~jpw8bd/teaching/
 
-Assignment text is located here: https://docs.google.com/document/d/1Fg6-z6cc7i2L6zIFIc31mHQsds8Pf0U2MnbBh3H0XGk/edit?usp=sharing
+Assignment text is located here: https://docs.google.com/document/d/1Ug4RTt0PnMTcYjAJ24qEeWWHaLanJ9NdY6cAQSSBA-w/edit?usp=sharing
 
 This assignment is meant to teach undergraduate/graduate level programmers basic GPU programming by having them write a parallel findMax() reduction in the CUDA programming language. 
 
