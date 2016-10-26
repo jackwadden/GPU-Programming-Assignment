@@ -1,9 +1,10 @@
 # VERSION 7
-CUDA=/usr/local/cuda-7.5
+CUDA=/usr/local/cuda
 NVCC=${CUDA}/bin/nvcc
 IDIR=${CUDA}/include
 LDIR=${CUDA}/lib64
-NVCC_FLAGS=-I${IDIR} -L${LDIR}
+WARN=-Wno-deprecated-gpu-targets
+NVCC_FLAGS=-I${IDIR} -L${LDIR} ${WARN}
 
 # make dbg=1 tells nvcc to add debugging symbols to the binary
 ifeq ($(dbg),1)
