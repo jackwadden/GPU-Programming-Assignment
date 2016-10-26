@@ -3,7 +3,7 @@
 #include <cuda.h>
 #include <cfloat>
 
-//VERSION 1.7 MODIFIED 5/23 10:01 by Jack
+//VERSION 0.8 MODIFIED 10/25/16 12:34 by Jack
 
 // The number of threads per blocks in the kernel
 // (if we define it here, then we can use its value in the kernel,
@@ -12,15 +12,17 @@ const int threads_per_block = 256;
 
 
 // Forward function declarations
-float GPU_vector_max(float *A, int N, int kernel_code);
+float GPU_vector_max(float *A, int N, int kernel_code, float *kernel_time, float *transfer_time);
 float CPU_vector_max(float *A, int N);
 float *get_random_vector(int N);
 float *get_increasing_vector(int N);
+float usToSec(long long time);
 long long start_timer();
 long long stop_timer(long long start_time, const char *name);
 void die(const char *message);
 void checkError();
 
+// Main program
 int main(int argc, char **argv) {
 
     //default kernel
@@ -49,10 +51,14 @@ int main(int argc, char **argv) {
     stop_timer(vector_start_time, "Vector generation");
 	
     // Compute the max on the GPU
+    float GPU_kernel_time;
+    float transfer_time;
     long long GPU_start_time = start_timer();
-    float result_GPU = GPU_vector_max(vec, N, kernel_code);
+    float result_GPU = GPU_vector_max(vec, N, kernel_code, &GPU_kernel_time, &transfer_time);
     long long GPU_time = stop_timer(GPU_start_time, "\t            Total");
 	
+    printf("%f\n", GPU_kernel_time);
+
     // Compute the max on the CPU
     long long CPU_start_time = start_timer();
     float result_CPU = CPU_vector_max(vec, N);
@@ -62,9 +68,14 @@ int main(int argc, char **argv) {
     cudaFree(vec);
 
     // Compute the speedup or slowdown
-    if (GPU_time > CPU_time) printf("\nCPU outperformed GPU by %.2fx\n", (float) GPU_time / (float) CPU_time);
-    else                     printf("\nGPU outperformed CPU by %.2fx\n", (float) CPU_time / (float) GPU_time);
-	
+    //// Not including data transfer
+    if (GPU_kernel_time > usToSec(CPU_time)) printf("\nCPU outperformed GPU kernel by %.2fx\n", (float) (GPU_kernel_time) / usToSec(CPU_time));
+    else                     printf("\nGPU kernel outperformed CPU by %.2fx\n", (float) usToSec(CPU_time) / (float) GPU_kernel_time);
+
+    //// Including data transfer
+    if (GPU_time > CPU_time) printf("\nCPU outperformed GPU total runtime (including data transfer) by %.2fx\n", (float) GPU_time / (float) CPU_time);
+    else                     printf("\nGPU total runtime (including data transfer) outperformed CPU by %.2fx\n", (float) CPU_time / (float) GPU_time);
+
     // Check the correctness of the GPU results
     int wrong = result_CPU != result_GPU;
 	
@@ -108,8 +119,16 @@ __global__ void vector_max_kernel(float *in, float *out, int N) {
     }
 }
 
+/////////////////////////////////////////////
+// COPY KERNEL ONE AND CREATE NEW KERNELS HERE
+
+/////////////////////////////////////////////
+
 // Returns the maximum value within a vector of length N
-float GPU_vector_max(float *in_CPU, int N, int kernel_code) {
+float GPU_vector_max(float *in_CPU, int N, int kernel_code, float *kernel_runtime, float *transfer_runtime) {
+
+    long long transfer_time = 0;
+    long long kernel_time = 0;
 
     int vector_size = N * sizeof(float);
 
@@ -128,7 +147,7 @@ float GPU_vector_max(float *in_CPU, int N, int kernel_code) {
     // Transfer the input vectors to GPU memory
     cudaMemcpy(in_GPU, in_CPU, vector_size, cudaMemcpyHostToDevice);
     cudaDeviceSynchronize();  // this is only needed for timing purposes
-    stop_timer(memory_start_time, "\nGPU:\t  Transfer to GPU");
+    transfer_time += stop_timer(memory_start_time, "\nGPU:\t  Transfer to GPU");
 	
     // Determine the number of thread blocks in the x- and y-dimension
     int num_blocks = (int) ((float) (N + threads_per_block - 1) / (float) threads_per_block);
@@ -148,22 +167,22 @@ float GPU_vector_max(float *in_CPU, int N, int kernel_code) {
         break;
     case 2 :
         //LAUNCH KERNEL FROM PROBLEM 2 HERE
-        die("KERNEL NOT IMPLEMENTED YET\n");
+        die("KERNEL 2 NOT IMPLEMENTED YET\n");
         break;
     case 3 :
         //LAUNCH KERNEL FROM PROBLEM 3 HERE
-        die("KERNEL NOT IMPLEMENTED YET\n");
+        die("KERNEL 3 NOT IMPLEMENTED YET\n");
         break;
     case 4 :
         //LAUNCH KERNEL FROM PROBLEM 4 HERE
-        die("KERNEL NOT IMPLEMENTED YET\n");
+        die("KERNEL 4 NOT IMPLEMENTED YET\n");
         break;
     default :
         die("INVALID KERNEL CODE\n");
     }
     
     cudaDeviceSynchronize();  // this is only needed for timing purposes
-    stop_timer(kernel_start_time, "\t Kernel execution");
+    kernel_time += stop_timer(kernel_start_time, "\t Kernel execution");
     
     checkError();
     
@@ -174,7 +193,7 @@ float GPU_vector_max(float *in_CPU, int N, int kernel_code) {
     cudaMemcpy(out_CPU, out_GPU, vector_size, cudaMemcpyDeviceToHost);
     checkError();
     cudaDeviceSynchronize();  // this is only needed for timing purposes
-    stop_timer(memory_start_time, "\tTransfer from GPU");
+    transfer_time += stop_timer(memory_start_time, "\tTransfer from GPU");
     			    
     // Free the GPU memory
     cudaFree(in_GPU);
@@ -183,6 +202,9 @@ float GPU_vector_max(float *in_CPU, int N, int kernel_code) {
     float max = out_CPU[0];
     cudaFree(out_CPU);
 
+    // fill input pointers with ms runtimes
+    *kernel_runtime = usToSec(kernel_time);
+    *transfer_runtime = usToSec(transfer_time);
     //return a single statistic
     return max;
 }
@@ -253,13 +275,18 @@ long long start_timer() {
     return tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
+// converts a long long ns value to float seconds
+float usToSec(long long time) {
+    return ((float)time)/(1000000);
+}
 
 // Prints the time elapsed since the specified time
 long long stop_timer(long long start_time, const char *name) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     long long end_time = tv.tv_sec * 1000000 + tv.tv_usec;
-    printf("%s: %.5f sec\n", name, ((float) (end_time - start_time)) / (1000 * 1000));
+    float elapsed = usToSec(end_time - start_time);
+    printf("%s: %.5f sec\n", name, elapsed);
     return end_time - start_time;
 }
 

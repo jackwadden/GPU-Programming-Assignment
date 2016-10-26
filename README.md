@@ -1,4 +1,6 @@
-# GPU Programming Assignment v0.8 -- by Jack Wadden
+# GPU Programming Assignment v0.8
+
+by Jack Wadden
 
 # Description
 Assignment slides are located here: http://www.cs.virginia.edu/~jpw8bd/teaching/
