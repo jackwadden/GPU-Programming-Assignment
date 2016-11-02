@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     float result_GPU = GPU_vector_max(vec, N, kernel_code, &GPU_kernel_time, &transfer_time);
     long long GPU_time = stop_timer(GPU_start_time, "\t            Total");
 	
-    printf("%f\n", GPU_kernel_time);
+    printf("\tTotal Kernel Time: %f sec\n", GPU_kernel_time);
 
     // Compute the max on the CPU
     long long CPU_start_time = start_timer();
